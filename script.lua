@@ -1,85 +1,55 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 local Players = game:GetService("Players")
-local DataStoreService = game:GetService("DataStoreService")
 
--- Crear DataStore
-local itemDataStore = DataStoreService:GetDataStore("PlayerBackpack")
-
--- Crear `RemoteEvent` si no existe
-local DuplicateBackpackEvent = ReplicatedStorage:FindFirstChild("DuplicateBackpackEvent")
-if not DuplicateBackpackEvent then
-    DuplicateBackpackEvent = Instance.new("RemoteEvent")
-    DuplicateBackpackEvent.Name = "DuplicateBackpackEvent"
-    DuplicateBackpackEvent.Parent = ReplicatedStorage
-end
-
--- Crear GUI en el cliente
+-- Crear GUI
 local screenGui = Instance.new("ScreenGui")
 screenGui.Parent = game:GetService("CoreGui")
 
+-- Crear botón centrado
 local button = Instance.new("TextButton")
 button.Parent = screenGui
-button.Size = UDim2.new(0, 200, 0, 50)
+button.Size = UDim2.new(0, 200, 0, 50) 
 button.Position = UDim2.new(0.5, 0, 0.5, 0)
 button.AnchorPoint = Vector2.new(0.5, 0.5)
-button.Text = "Duplicar Backpack"
+button.Text = "Duplicar Ítem Seleccionado"
 button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 button.TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- Obtener el `Backpack` desde DataStore al entrar al juego
-game.Players.PlayerAdded:Connect(function(player)
-    local success, data = pcall(function()
-        return itemDataStore:GetAsync(player.UserId)
-    end)
-
-    if success and data then
-        local backpack = player:FindFirstChild("Backpack")
-        if backpack then
-            for _, itemName in pairs(data) do
-                local item = Instance.new("Tool")
-                item.Name = itemName
-                item.Parent = backpack
-            end
-            print("Backpack cargado desde DataStore.")
-        end
-    else
-        print("No se encontraron datos previos en DataStore.")
-    end
-end)
-
--- Duplicar el `Backpack` sin cambiar atributos y actualizar DataStore
-button.MouseButton1Click:Connect(function()
+-- Identificar el ítem seleccionado
+local function getSelectedItem()
     local player = Players.LocalPlayer
     local backpack = player:FindFirstChild("Backpack")
 
-    if backpack then
-        local newItems = {}
-
-        for _, item in pairs(backpack:GetChildren()) do
-            local clonedItem = item:Clone()
-            clonedItem.Parent = backpack -- Duplica el ítem en el Backpack
-            table.insert(newItems, clonedItem.Name) -- Solo guarda el nombre en DataStore
+    if backpack and player.Character then
+        local humanoid = player.Character:FindFirstChild("Humanoid")
+        if humanoid and humanoid:IsA("Humanoid") and humanoid.Parent then
+            local tool = humanoid.Parent:FindFirstChildOfClass("Tool") -- Busca el ítem equipado
+            return tool
         end
-
-        -- Enviar solicitud al servidor para actualizar DataStore
-        DuplicateBackpackEvent:FireServer(newItems)
-        print("Backpack duplicado y solicitud enviada al servidor.")
-    else
-        print("No se encontró el Backpack del jugador.")
     end
-end)
+    return nil
+end
 
--- Script del servidor (Ejecutado en Delta)
-DuplicateBackpackEvent.OnServerEvent:Connect(function(player, newItems)
-    local success, errorMessage = pcall(function()
-        itemDataStore:SetAsync(player.UserId, newItems)
-    end)
-
-    if success then
-        print("Backpack actualizado en DataStore correctamente.")
+-- Duplicar solo el ítem seleccionado
+local function duplicateSelectedItem()
+    local selectedItem = getSelectedItem()
+    if selectedItem then
+        local clonedItem = selectedItem:Clone()
+        -- Cambia el nombre para evitar conflictos
+        clonedItem.Name = selectedItem.Name .. "_Duplicado"
+        -- Desconecta cualquier conexión previa si tu Tool tiene scripts con eventos
+        -- (Opcional: depende de cómo esté programada la Tool)
+        -- Asegúrate de que el clon no esté equipado accidentalmente
+        clonedItem.Parent = nil
+        wait() -- Pequeño delay para evitar glitches
+        clonedItem.Parent = Players.LocalPlayer.Backpack
+        print("Ítem duplicado correctamente: " .. selectedItem.Name)
     else
-        print("Error al guardar en DataStore:", errorMessage)
+        print("No se encontró un ítem seleccionado.")
     end
-end)
+end
 
-print("Botón creado y listo para duplicar el Backpack y actualizar DataStore.")
+-- Conectar el botón a la función
+button.MouseButton1Click:Connect(duplicateSelectedItem)
+
+print("Botón creado y listo para duplicar el ítem seleccionado")
