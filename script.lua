@@ -2,16 +2,12 @@ local StarterPack = game:GetService("StarterPack")
 local Players = game:GetService("Players")
 
 local function duplicateItems(player)
-	for _, item in pairs(StarterPack:GetChildren()) do
-		local clonedItem = item:Clone()
-		clonedItem.Parent = player.Backpack 
-	end
+    for _, item in pairs(StarterPack:GetChildren()) do
+        local clonedItem = item:Clone()
+        clonedItem.Parent = player.Backpack -- Asigna el ítem clonado al inventario del jugador
+    end
 end
 
-local button = script.Parent
-button.MouseButton1Click:Connect(function()
-	local player = Players.LocalPlayer
-	if player then
-		duplicateItems(player)
-	end
+game.Players.PlayerAdded:Connect(function(player)
+    duplicateItems(player)
 end)
