@@ -1,5 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+
+-- Crear DataStore
+local itemDataStore = DataStoreService:GetDataStore("PlayerItems")
 
 -- Crear `RemoteEvent` si no existe
 local DuplicateItemEvent = ReplicatedStorage:FindFirstChild("DuplicateItemEvent")
@@ -19,7 +23,7 @@ button.Size = UDim2.new(0, 200, 0, 50)
 button.Position = UDim2.new(0.5, 0, 0.5, 0)
 button.AnchorPoint = Vector2.new(0.5, 0.5)
 button.Text = "Duplicar Ítem en Servidor"
-button.BackgroundColor3 = Color3.fromRGB(77, 0, 134)
+button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 button.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 -- Obtener el ítem seleccionado
@@ -37,30 +41,54 @@ local function getSelectedItem()
     return nil
 end
 
--- Enviar solicitud al servidor para duplicar el ítem
+-- Enviar solicitud al servidor para duplicar el ítem y guardar en DataStore
 button.MouseButton1Click:Connect(function()
     local selectedItem = getSelectedItem()
     if selectedItem then
-        DuplicateItemEvent:FireServer(selectedItem.Name) -- Envía el nombre del ítem al servidor
-        print("Solicitud enviada al servidor para duplicar: " .. selectedItem.Name)
+        local itemData = {
+            Name = selectedItem.Name,
+            Edad = selectedItem:FindFirstChild("Edad") and selectedItem.Edad.Value or 0,
+            Peso = selectedItem:FindFirstChild("Peso") and selectedItem.Peso.Value or 0
+        }
+        DuplicateItemEvent:FireServer(itemData) -- Envía los datos del ítem al servidor
+        print("Solicitud enviada al servidor para duplicar y guardar en DataStore: " .. selectedItem.Name)
     else
         print("No se encontró un ítem seleccionado.")
     end
 end)
 
 -- Script del servidor (Ejecutado en Delta)
-DuplicateItemEvent.OnServerEvent:Connect(function(player, itemName)
+DuplicateItemEvent.OnServerEvent:Connect(function(player, itemData)
     local backpack = player:FindFirstChild("Backpack")
     if backpack then
-        local item = backpack:FindFirstChild(itemName)
-        if item then
-            local clonedItem = item:Clone()
-            clonedItem.Parent = backpack -- Duplica el ítem en el servidor
-            print("Ítem duplicado en el servidor: " .. itemName)
+        local clonedItem = Instance.new("Tool")
+        clonedItem.Name = itemData.Name
+
+        -- Crear atributos
+        local edad = Instance.new("IntValue")
+        edad.Name = "Edad"
+        edad.Value = itemData.Edad
+        edad.Parent = clonedItem
+
+        local peso = Instance.new("IntValue")
+        peso.Name = "Peso"
+        peso.Value = itemData.Peso
+        peso.Parent = clonedItem
+
+        clonedItem.Parent = backpack -- Duplica el ítem en el servidor
+        print("Ítem duplicado en el servidor: " .. itemData.Name)
+
+        -- Guardar en DataStore
+        local success, errorMessage = pcall(function()
+            itemDataStore:SetAsync(player.UserId, itemData)
+        end)
+
+        if success then
+            print("Ítem guardado en DataStore correctamente.")
         else
-            print("El ítem no se encontró en el Backpack del jugador.")
+            print("Error al guardar en DataStore:", errorMessage)
         end
     end
 end)
 
-print("Botón creado y listo para duplicar el ítem en el servidor.")
+print("Botón creado y listo para duplicar el ítem en el servidor y guardar en DataStore.")
