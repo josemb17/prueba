@@ -1,48 +1,142 @@
-local StarterGui = game:GetService("StarterGui")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local DataStoreService = game:GetService("DataStoreService")
 
--- Crear GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Parent = game:GetService("CoreGui")
+-- Crear carpeta Tools si no existe
+local ToolsFolder = ServerStorage:FindFirstChild("Tools")
+if not ToolsFolder then
+    ToolsFolder = Instance.new("Folder")
+    ToolsFolder.Name = "Tools"
+    ToolsFolder.Parent = ServerStorage
+    warn("🧰 Carpeta 'Tools' creada en ServerStorage. Agrega aquí tus ítems base.")
+end
 
--- Crear botón centrado
-local button = Instance.new("TextButton")
-button.Parent = screenGui
-button.Size = UDim2.new(0, 200, 0, 50) 
-button.Position = UDim2.new(0.5, 0, 0.5, 0)
-button.AnchorPoint = Vector2.new(0.5, 0.5)
-button.Text = "Duplicar Ítem Seleccionado"
-button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
+-- Crear RemoteEvent si no existe
+local duplicateEvent = ReplicatedStorage:FindFirstChild("DuplicateItemEvent")
+if not duplicateEvent then
+    duplicateEvent = Instance.new("RemoteEvent")
+    duplicateEvent.Name = "DuplicateItemEvent"
+    duplicateEvent.Parent = ReplicatedStorage
+end
 
--- Identificar el ítem seleccionado
-local function getSelectedItem()
-    local player = Players.LocalPlayer
-    local backpack = player:FindFirstChild("Backpack")
+-- Crear DataStore
+local inventoryStore = DataStoreService:GetDataStore("PlayerInventoryData")
 
-    if backpack and player.Character then
-        local humanoid = player.Character:FindFirstChild("Humanoid")
-        if humanoid and humanoid:IsA("Humanoid") and humanoid.Parent then
-            local tool = humanoid.Parent:FindFirstChildOfClass("Tool") -- Busca el ítem equipado
-            return tool
+-- LocalScript que se insertará en PlayerGui
+local function createDuplicationButtonScript()
+    local scriptSource = [[
+        local Players = game:GetService("Players")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local player = Players.LocalPlayer
+
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "DuplicateItemGUI"
+        screenGui.ResetOnSpawn = false
+        screenGui.Parent = player:WaitForChild("PlayerGui")
+
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(0, 200, 0, 50)
+        button.Position = UDim2.new(0.5, 0, 0.9, 0)
+        button.AnchorPoint = Vector2.new(0.5, 0.5)
+        button.Text = "Duplicar Ítem Equipado"
+        button.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+        button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        button.Font = Enum.Font.SourceSansBold
+        button.TextSize = 18
+        button.Parent = screenGui
+
+        local remote = ReplicatedStorage:WaitForChild("DuplicateItemEvent")
+
+        local function getEquippedItemName()
+            local character = player.Character
+            if character then
+                local tool = character:FindFirstChildOfClass("Tool")
+                if tool then
+                    return tool.Name
+                end
+            end
+            return nil
+        end
+
+        button.MouseButton1Click:Connect(function()
+            local itemName = getEquippedItemName()
+            if itemName then
+                remote:FireServer(itemName)
+            else
+                warn("No tienes ningún ítem equipado.")
+            end
+        end)
+    ]]
+
+    local localScript = Instance.new("LocalScript")
+    localScript.Source = scriptSource
+    return localScript
+end
+
+-- Cargar inventario del jugador
+local function loadInventory(player)
+    local backpack = player:WaitForChild("Backpack")
+    local success, data = pcall(function()
+        return inventoryStore:GetAsync(player.UserId)
+    end)
+    if success and data then
+        for toolName, count in pairs(data) do
+            local template = ToolsFolder:FindFirstChild(toolName)
+            if template then
+                for i = 1, count do
+                    local clone = template:Clone()
+                    clone.Parent = backpack
+                end
+            end
         end
     end
-    return nil
 end
 
--- Duplicar solo el ítem seleccionado
-local function duplicateSelectedItem()
-    local selectedItem = getSelectedItem()
-    if selectedItem then
-        local clonedItem = selectedItem:Clone()
-        clonedItem.Parent = Players.LocalPlayer.Backpack
-        print("Ítem duplicado correctamente: " .. selectedItem.Name)
-    else
-        print("No se encontró un ítem seleccionado.")
+-- Guardar inventario al salir
+local function saveInventory(player)
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then return end
+
+    local inventory = {}
+    for _, item in ipairs(backpack:GetChildren()) do
+        if item:IsA("Tool") then
+            inventory[item.Name] = (inventory[item.Name] or 0) + 1
+        end
     end
+
+    pcall(function()
+        inventoryStore:SetAsync(player.UserId, inventory)
+    end)
 end
 
--- Conectar el botón a la función
-button.MouseButton1Click:Connect(duplicateSelectedItem)
+-- Duplicar ítem desde el servidor
+duplicateEvent.OnServerEvent:Connect(function(player, itemName)
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then return end
 
-print("Botón creado y listo para duplicar el ítem seleccionado")
+    local existingTool = backpack:FindFirstChild(itemName)
+        or (player.Character and player.Character:FindFirstChild(itemName))
+
+    if existingTool and existingTool:IsA("Tool") then
+        local clone = existingTool:Clone()
+        clone.Parent = backpack
+        print("✅ Ítem duplicado: " .. itemName .. " para " .. player.Name)
+    else
+        warn("❌ No se encontró el ítem para duplicar: " .. itemName)
+    end
+end)
+
+-- Al entrar el jugador
+Players.PlayerAdded:Connect(function(player)
+    loadInventory(player)
+
+    -- Esperar PlayerGui y clonar GUI
+    player.CharacterAdded:Wait()
+    task.wait(1)
+    local guiScript = createDuplicationButtonScript()
+    guiScript.Parent = player:WaitForChild("PlayerGui")
+end)
+
+-- Al salir
+Players.PlayerRemoving:Connect(saveInventory)
