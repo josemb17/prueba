@@ -1,38 +1,48 @@
 local StarterGui = game:GetService("StarterGui")
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Crear GUI en el cliente
+-- Crear GUI
 local screenGui = Instance.new("ScreenGui")
 screenGui.Parent = game:GetService("CoreGui")
 
 -- Crear botón centrado
 local button = Instance.new("TextButton")
 button.Parent = screenGui
-button.Size = UDim2.new(0, 200, 0, 50) -- Tamaño del botón
-button.Position = UDim2.new(0.5, 0, 0.5, 0) -- Se coloca en el centro de la pantalla
-button.AnchorPoint = Vector2.new(0.5, 0.5) -- Ajusta el punto de anclaje para que esté realmente centrado
-button.Text = "Duplicar Ítems"
-button.BackgroundColor3 = Color3.fromRGB(77, 0, 134) -- Color rojo
-button.TextColor3 = Color3.fromRGB(255, 255, 255) -- Texto blanco
+button.Size = UDim2.new(0, 200, 0, 50) 
+button.Position = UDim2.new(0.5, 0, 0.5, 0)
+button.AnchorPoint = Vector2.new(0.5, 0.5)
+button.Text = "Duplicar Ítem Seleccionado"
+button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- Función para duplicar ítems en el cliente
-local function duplicateItems()
+-- Identificar el ítem seleccionado
+local function getSelectedItem()
     local player = Players.LocalPlayer
     local backpack = player:FindFirstChild("Backpack")
 
-    if backpack then
-        for _, item in pairs(backpack:GetChildren()) do
-            local clonedItem = item:Clone()
-            clonedItem.Parent = backpack -- Agrega el ítem clonado al inventario
+    if backpack and player.Character then
+        local humanoid = player.Character:FindFirstChild("Humanoid")
+        if humanoid and humanoid:IsA("Humanoid") and humanoid.Parent then
+            local tool = humanoid.Parent:FindFirstChildOfClass("Tool") -- Busca el ítem equipado
+            return tool
         end
-        print("Inventario duplicado correctamente.")
+    end
+    return nil
+end
+
+-- Duplicar solo el ítem seleccionado
+local function duplicateSelectedItem()
+    local selectedItem = getSelectedItem()
+    if selectedItem then
+        local clonedItem = selectedItem:Clone()
+        clonedItem.Parent = Players.LocalPlayer.Backpack
+        print("Ítem duplicado correctamente: " .. selectedItem.Name)
     else
-        print("No se encontró el Backpack del jugador.")
+        print("No se encontró un ítem seleccionado.")
     end
 end
 
 -- Conectar el botón a la función
-button.MouseButton1Click:Connect(duplicateItems)
+button.MouseButton1Click:Connect(duplicateSelectedItem)
 
-print("Botón creado y centrado automáticamente")
+print("Botón creado y listo para duplicar el ítem seleccionado")
