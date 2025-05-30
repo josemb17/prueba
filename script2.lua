@@ -21,7 +21,17 @@ scrollingFrame.CanvasSize = UDim2.new(0, 0, 5, 0)
 scrollingFrame.ScrollBarThickness = 10
 scrollingFrame.BackgroundTransparency = 1
 
--- Crear botón para mostrar/ocultar información
+-- Campo de entrada para el nuevo nombre
+local nameInput = Instance.new("TextBox")
+nameInput.Parent = screenGui
+nameInput.Size = UDim2.new(0, 200, 0, 50)
+nameInput.Position = UDim2.new(0.5, 0, 0.7, 0)
+nameInput.AnchorPoint = Vector2.new(0.5, 0.5)
+nameInput.Text = "Nuevo Nombre"
+nameInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+nameInput.TextColor3 = Color3.fromRGB(0, 0, 0)
+
+-- Botón para mostrar/ocultar información
 local infoButton = Instance.new("TextButton")
 infoButton.Parent = screenGui
 infoButton.Size = UDim2.new(0, 200, 0, 50)
@@ -30,6 +40,16 @@ infoButton.AnchorPoint = Vector2.new(0.5, 0.5)
 infoButton.Text = "Mostrar/Ocultar Info"
 infoButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 infoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Botón para generar un nuevo ítem
+local generateItemButton = Instance.new("TextButton")
+generateItemButton.Parent = screenGui
+generateItemButton.Size = UDim2.new(0, 200, 0, 50)
+generateItemButton.Position = UDim2.new(0.5, 0, 0.8, 0)
+generateItemButton.AnchorPoint = Vector2.new(0.5, 0.5)
+generateItemButton.Text = "Generar Nuevo Ítem"
+generateItemButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+generateItemButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 -- Función para obtener el ítem seleccionado
 local function getSelectedItem()
@@ -88,7 +108,29 @@ local function extractItemInfo()
     end
 end
 
--- Conectar el botón a la función
-infoButton.MouseButton1Click:Connect(extractItemInfo)
+-- Función para duplicar el ítem con un nombre personalizado
+local function duplicateSelectedItem()
+    local selectedItem = getSelectedItem()
+    if selectedItem then
+        local clonedItem = selectedItem:Clone()
 
-print("Botón creado para mostrar información del ítem seleccionado.")
+        -- Modificar el nombre del ítem duplicado con el valor del TextBox
+        local newName = nameInput.Text
+        if newName and newName ~= "" and newName ~= "Nuevo Nombre" then
+            clonedItem.Name = newName
+        else
+            clonedItem.Name = selectedItem.Name .. "_Nuevo"
+        end
+
+        clonedItem.Parent = Players.LocalPlayer.Backpack
+        print("Ítem duplicado correctamente con nuevo nombre: " .. clonedItem.Name)
+    else
+        print("No se encontró un ítem seleccionado.")
+    end
+end
+
+-- Conectar los botones a sus funciones
+infoButton.MouseButton1Click:Connect(extractItemInfo)
+generateItemButton.MouseButton1Click:Connect(duplicateSelectedItem)
+
+print("Interfaz creada con opción para modificar el nombre y generar un nuevo ítem.")
