@@ -5,17 +5,27 @@ local Players = game:GetService("Players")
 local screenGui = Instance.new("ScreenGui")
 screenGui.Parent = game:GetService("CoreGui")
 
--- Crear botón centrado
-local button = Instance.new("TextButton")
-button.Parent = screenGui
-button.Size = UDim2.new(0, 200, 0, 50) 
-button.Position = UDim2.new(0.5, 0, 0.5, 0)
-button.AnchorPoint = Vector2.new(0.5, 0.5)
-button.Text = "Duplicar Ítem Seleccionado"
-button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
+-- Crear botón de duplicar
+local duplicateButton = Instance.new("TextButton")
+duplicateButton.Parent = screenGui
+duplicateButton.Size = UDim2.new(0, 200, 0, 50) 
+duplicateButton.Position = UDim2.new(0.5, 0, 0.5, 0)
+duplicateButton.AnchorPoint = Vector2.new(0.5, 0.5)
+duplicateButton.Text = "Duplicar Ítem Seleccionado"
+duplicateButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+duplicateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- Identificar el ítem seleccionado
+-- Crear botón de mostrar/ocultar GUI
+local toggleGuiButton = Instance.new("TextButton")
+toggleGuiButton.Parent = screenGui
+toggleGuiButton.Size = UDim2.new(0, 200, 0, 50) 
+toggleGuiButton.Position = UDim2.new(0.5, 0, 0.6, 0)
+toggleGuiButton.AnchorPoint = Vector2.new(0.5, 0.5)
+toggleGuiButton.Text = "Mostrar/Ocultar GUI"
+toggleGuiButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+toggleGuiButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Función para identificar el ítem seleccionado
 local function getSelectedItem()
     local player = Players.LocalPlayer
     local backpack = player:FindFirstChild("Backpack")
@@ -30,19 +40,19 @@ local function getSelectedItem()
     return nil
 end
 
--- Duplicar ítem seleccionado con modificación de atributo
+-- Función para duplicar el ítem con modificación de Age
 local function duplicateSelectedItem()
     local selectedItem = getSelectedItem()
     if selectedItem then
         local clonedItem = selectedItem:Clone()
-        
+
         -- Modificar el atributo "Age" si existe
         if clonedItem:FindFirstChild("Age") then
-            clonedItem.Age.Value = clonedItem.Age.Value + 1 -- Ejemplo: aumentar la edad en 1
+            clonedItem.Age.Value = clonedItem.Age.Value + 1 -- Aumentar la edad en 1
         else
             print("El ítem duplicado no tiene un atributo 'Age'.")
         end
-        
+
         clonedItem.Parent = Players.LocalPlayer.Backpack
         print("Ítem duplicado correctamente con modificación de edad: " .. selectedItem.Name)
     else
@@ -50,7 +60,14 @@ local function duplicateSelectedItem()
     end
 end
 
--- Conectar el botón a la función
-button.MouseButton1Click:Connect(duplicateSelectedItem)
+-- Función para alternar la visibilidad de la GUI
+local function toggleGui()
+    screenGui.Enabled = not screenGui.Enabled
+    print("GUI " .. (screenGui.Enabled and "visible" or "oculta"))
+end
 
-print("Botón creado y listo para duplicar el ítem con modificación de edad.")
+-- Conectar los botones a sus funciones
+duplicateButton.MouseButton1Click:Connect(duplicateSelectedItem)
+toggleGuiButton.MouseButton1Click:Connect(toggleGui)
+
+print("Botones creados: duplicar ítem y alternar visibilidad de GUI.")
