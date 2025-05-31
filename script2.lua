@@ -1,4 +1,6 @@
 local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+local itemStore = DataStoreService:GetDataStore("DuplicatedItemsStore")
 
 -- Crear GUI
 local screenGui = Instance.new("ScreenGui")
@@ -13,14 +15,6 @@ frame.AnchorPoint = Vector2.new(0.5, 0.5)
 frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 frame.Visible = false
 
--- Crear área desplazable para los atributos
-local scrollingFrame = Instance.new("ScrollingFrame")
-scrollingFrame.Parent = frame
-scrollingFrame.Size = UDim2.new(1, 0, 1, 0)
-scrollingFrame.CanvasSize = UDim2.new(0, 0, 5, 0)
-scrollingFrame.ScrollBarThickness = 10
-scrollingFrame.BackgroundTransparency = 1
-
 -- Campo de entrada para el nuevo nombre
 local nameInput = Instance.new("TextBox")
 nameInput.Parent = screenGui
@@ -30,16 +24,6 @@ nameInput.AnchorPoint = Vector2.new(0.5, 0.5)
 nameInput.Text = "Nuevo Nombre"
 nameInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 nameInput.TextColor3 = Color3.fromRGB(0, 0, 0)
-
--- Botón para mostrar/ocultar información
-local infoButton = Instance.new("TextButton")
-infoButton.Parent = screenGui
-infoButton.Size = UDim2.new(0, 200, 0, 50)
-infoButton.Position = UDim2.new(0.5, 0, 0.6, 0)
-infoButton.AnchorPoint = Vector2.new(0.5, 0.5)
-infoButton.Text = "Mostrar/Ocultar Info"
-infoButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-infoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 -- Botón para generar un nuevo ítem
 local generateItemButton = Instance.new("TextButton")
@@ -51,71 +35,22 @@ generateItemButton.Text = "Generar Nuevo Ítem"
 generateItemButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 generateItemButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- Función para obtener el ítem seleccionado
+-- Obtener ítem seleccionado
 local function getSelectedItem()
     local player = Players.LocalPlayer
-    local backpack = player:FindFirstChild("Backpack")
-
-    if backpack and player.Character then
-        local humanoid = player.Character:FindFirstChild("Humanoid")
-        if humanoid and humanoid:IsA("Humanoid") and humanoid.Parent then
-            local tool = humanoid.Parent:FindFirstChildOfClass("Tool") -- Busca el ítem equipado
-            return tool
-        end
+    if player and player.Character then
+        return player.Character:FindFirstChildOfClass("Tool")
     end
     return nil
 end
 
--- Función para extraer y mostrar la información del ítem
-local function extractItemInfo()
-    frame.Visible = not frame.Visible -- Alternar visibilidad
-    
-    for _, child in ipairs(scrollingFrame:GetChildren()) do
-        if child:IsA("TextLabel") then
-            child:Destroy()
-        end
-    end
-    
-    local selectedItem = getSelectedItem()
-    if selectedItem then
-        local attributes = selectedItem:GetChildren()
-        
-        for i, attr in ipairs(attributes) do
-            local label = Instance.new("TextLabel")
-            label.Parent = scrollingFrame
-            label.Size = UDim2.new(1, 0, 0, 25)
-            label.Position = UDim2.new(0, 0, 0, (i - 1) * 25)
-            label.Text = attr.Name .. ": " .. (attr:IsA("ValueBase") and tostring(attr.Value) or "Objeto")
-            label.TextColor3 = Color3.fromRGB(255, 255, 255)
-            label.BackgroundTransparency = 1
-        end
-        
-        -- Mostrar propiedades generales
-        local generalProps = {"Parent", "ClassName", "Archivable", "Name"}
-        for i, prop in ipairs(generalProps) do
-            local label = Instance.new("TextLabel")
-            label.Parent = scrollingFrame
-            label.Size = UDim2.new(1, 0, 0, 25)
-            label.Position = UDim2.new(0, 0, 0, (#attributes + i - 1) * 25)
-            label.Text = prop .. ": " .. tostring(selectedItem[prop])
-            label.TextColor3 = Color3.fromRGB(255, 255, 255)
-            label.BackgroundTransparency = 1
-        end
-        
-        scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, (#attributes + #generalProps) * 25)
-    else
-        print("No se encontró un ítem seleccionado.")
-    end
-end
-
--- Función para duplicar el ítem con un nombre personalizado
+-- Duplicar ítem con nombre personalizado y guardarlo
 local function duplicateSelectedItem()
     local selectedItem = getSelectedItem()
     if selectedItem then
         local clonedItem = selectedItem:Clone()
-
-        -- Modificar el nombre del ítem duplicado con el valor del TextBox
         local newName = nameInput.Text
+        
         if newName and newName ~= "" and newName ~= "Nuevo Nombre" then
             clonedItem.Name = newName
         else
@@ -123,14 +58,52 @@ local function duplicateSelectedItem()
         end
 
         clonedItem.Parent = Players.LocalPlayer.Backpack
-        print("Ítem duplicado correctamente con nuevo nombre: " .. clonedItem.Name)
+
+        -- Guardar en DataStore
+        local playerKey = tostring(Players.LocalPlayer.UserId)
+        local success, errorMessage = pcall(function()
+            itemStore:SetAsync(playerKey, clonedItem.Name)
+        end)
+        
+        if success then
+            print("Ítem guardado correctamente en DataStore.")
+        else
+            print("Error al guardar el ítem: " .. errorMessage)
+        end
     else
         print("No se encontró un ítem seleccionado.")
     end
 end
 
--- Conectar los botones a sus funciones
-infoButton.MouseButton1Click:Connect(extractItemInfo)
+-- Cargar ítems al entrar
+Players.PlayerAdded:Connect(function(player)
+    local playerKey = tostring(player.UserId)
+    local success, storedItem = pcall(function()
+        return itemStore:GetAsync(playerKey)
+    end)
+    
+    if success and storedItem then
+        print("Ítem recuperado: " .. storedItem)
+    else
+        print("No se encontraron ítems guardados.")
+    end
+end)
+
+-- Guardar ítems al salir
+Players.PlayerRemoving:Connect(function(player)
+    local playerKey = tostring(player.UserId)
+    local success, errorMessage = pcall(function()
+        itemStore:SetAsync(playerKey, getSelectedItem() and getSelectedItem().Name or "")
+    end)
+
+    if success then
+        print("Ítem guardado correctamente al salir del juego.")
+    else
+        print("Error al guardar el ítem al salir: " .. errorMessage)
+    end
+end)
+
+-- Conectar el botón
 generateItemButton.MouseButton1Click:Connect(duplicateSelectedItem)
 
-print("Interfaz creada con opción para modificar el nombre y generar un nuevo ítem.")
+print("Interfaz creada con DataStore para guardar ítems duplicados.")
