@@ -22,6 +22,7 @@ draggableButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255) -- Color azul
 draggableButton.TextColor3 = Color3.new(1, 1, 1) -- Texto en blanco
 draggableButton.Font = Enum.Font.SourceSansBold
 draggableButton.TextSize = 20
+draggableButton.BorderSizePixel = 3
 
 -- 🖐 **Habilitar movimiento con Touch**
 local isDragging = false
@@ -52,9 +53,11 @@ UserInputService.InputBegan:Connect(onInputBegan)
 UserInputService.InputChanged:Connect(onInputChanged)
 UserInputService.InputEnded:Connect(onInputEnded)
 
--- 🔍 **Función para detectar la Pet equipada en la mano**
+-- 🔍 **Función para obtener la Pet equipada o en el inventario**
 local function GetEquippedPet()
     local character = localPlayer.Character
+    local backpack = localPlayer:FindFirstChild("Backpack")
+
     if character then
         for _, tool in ipairs(character:GetChildren()) do
             if tool:IsA("Tool") and tool:GetAttribute("PetID") then
@@ -62,6 +65,15 @@ local function GetEquippedPet()
             end
         end
     end
+
+    if backpack then
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") and tool:GetAttribute("PetID") then
+                return tool
+            end
+        end
+    end
+
     return nil
 end
 
@@ -72,7 +84,6 @@ local function ClonePetWithNewID()
         local newPet = equippedPet:Clone()
         newPet.Parent = PetStateRegistry -- Guardar en el registro
 
-        -- Extraer atributos originales
         local petID = equippedPet:GetAttribute("PetID")
         local petName = equippedPet:GetAttribute("Name")
         local petAge = equippedPet:GetAttribute("Age")
@@ -82,14 +93,14 @@ local function ClonePetWithNewID()
         local newLastDigit = tostring(math.random(0, 9))
         local newID = petID:sub(1, #petID - 1) .. newLastDigit
 
-        -- Asignar el nuevo ID (manteniendo el mismo nombre)
+        -- Asignar el nuevo ID sin cambiar el nombre
         newPet:SetAttribute("PetID", newID)
         newPet:SetAttribute("Age", petAge + 1) -- Aumentar edad
         newPet:SetAttribute("Weight", petWeight * 0.9) -- Reducir peso en 10%
 
         print("Nueva Pet creada con ID: " .. newID .. ", Nombre: " .. petName .. ", Edad: " .. newPet:GetAttribute("Age") .. ", Peso: " .. newPet:GetAttribute("Weight"))
     else
-        print("No tienes una Pet equipada.")
+        print("No tienes una Pet equipada o en tu inventario.")
     end
 end
 
