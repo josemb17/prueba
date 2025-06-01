@@ -2,61 +2,98 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
--- Buscar RemoteEvent (si no existe, crearlo)
-local SolicitarRegalo = ReplicatedStorage:FindFirstChild("SolicitarRegalo") 
-if not SolicitarRegalo then
-    SolicitarRegalo = Instance.new("RemoteEvent")
-    SolicitarRegalo.Name = "SolicitarRegalo"
-    SolicitarRegalo.Parent = ReplicatedStorage
-end
-
--- Buscar evento del sistema de regalos
-local GameEvents = ReplicatedStorage:FindFirstChild("GameEvents")
-local PetGiftingService = GameEvents and GameEvents:FindFirstChild("PetGiftingService")
+local DataFolder = ReplicatedStorage:FindFirstChild("Data")
+local PetRegistry = DataFolder and DataFolder:FindFirstChild("PetRegistry")
+local PetStateRegistry = PetRegistry and PetRegistry:FindFirstChild("PetStateRegistry")
 
 local localPlayer = Players.LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui") -- Asegurar que la GUI esté cargada
 
--- Función para encontrar al jugador más cercano
-local function EncontrarJugadorCercano()
-    local senderCharacter = localPlayer.Character
-    if not senderCharacter or not senderCharacter:FindFirstChild("HumanoidRootPart") then return end
+-- 🎨 **Crear la GUI desde el script**
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = playerGui
 
-    local jugadorMasCercano = nil
-    local menorDistancia = math.huge
+local draggableButton = Instance.new("TextButton")
+draggableButton.Parent = screenGui
+draggableButton.Size = UDim2.new(0, 200, 0, 50) -- Tamaño del botón
+draggableButton.Position = UDim2.new(0.5, -100, 0.8, 0) -- Posición inicial
+draggableButton.Text = "Clonar Pet"
+draggableButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255) -- Color azul
+draggableButton.TextColor3 = Color3.new(1, 1, 1) -- Texto en blanco
+draggableButton.Font = Enum.Font.SourceSansBold
+draggableButton.TextSize = 20
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local distancia = (senderCharacter.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-            if distancia < 5 and distancia < menorDistancia then -- Rango de proximidad
-                menorDistancia = distancia
-                jugadorMasCercano = player
+-- 🖐 **Habilitar movimiento con Touch**
+local isDragging = false
+local startPos, startInput
+
+local function onInputBegan(input, gameProcessed)
+    if not gameProcessed and input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = true
+        startPos = draggableButton.Position
+        startInput = input.Position
+    end
+end
+
+local function onInputChanged(input)
+    if isDragging and input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - startInput
+        draggableButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end
+
+local function onInputEnded(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = false
+    end
+end
+
+UserInputService.InputBegan:Connect(onInputBegan)
+UserInputService.InputChanged:Connect(onInputChanged)
+UserInputService.InputEnded:Connect(onInputEnded)
+
+-- 🔍 **Función para detectar la Pet equipada en la mano**
+local function GetEquippedPet()
+    local character = localPlayer.Character
+    if character then
+        for _, tool in ipairs(character:GetChildren()) do
+            if tool:IsA("Tool") and tool:GetAttribute("PetID") then
+                return tool
             end
         end
     end
-
-    return jugadorMasCercano
+    return nil
 end
 
--- Evento en el servidor que recibe la solicitud y activa GiftPet
-SolicitarRegalo.OnServerEvent:Connect(function(sender, targetPlayer)
-    if targetPlayer and targetPlayer.Character and PetGiftingService then
-        print(sender.Name .. " ha solicitado un regalo de " .. targetPlayer.Name)
-        
-        -- Activar PetGiftingService para el jugador objetivo
-        local args = { [1] = "GivePet", [2] = sender }
-        PetGiftingService:FireServer(unpack(args))
-    end
-end)
+-- ✨ **Función para clonar la Pet y cambiar solo el último dígito del ID**
+local function ClonePetWithNewID()
+    local equippedPet = GetEquippedPet()
+    if equippedPet and PetStateRegistry then
+        local newPet = equippedPet:Clone()
+        newPet.Parent = PetStateRegistry -- Guardar en el registro
 
--- Cliente envía solicitud al servidor al presionar "G"
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.G then
-        local jugadorCercano = EncontrarJugadorCercano()
-        if jugadorCercano then
-            SolicitarRegalo:FireServer(jugadorCercano) -- Solicitar regalo al jugador cercano
-            print("Solicitud de regalo enviada a: " .. jugadorCercano.Name)
-        else
-            print("No hay jugadores cercanos para solicitar regalo.")
-        end
+        -- Extraer atributos originales
+        local petID = equippedPet:GetAttribute("PetID")
+        local petName = equippedPet:GetAttribute("Name")
+        local petAge = equippedPet:GetAttribute("Age")
+        local petWeight = equippedPet:GetAttribute("Weight")
+
+        -- Cambiar solo el último dígito del ID
+        local newLastDigit = tostring(math.random(0, 9))
+        local newID = petID:sub(1, #petID - 1) .. newLastDigit
+
+        -- Asignar el nuevo ID (manteniendo el mismo nombre)
+        newPet:SetAttribute("PetID", newID)
+        newPet:SetAttribute("Age", petAge + 1) -- Aumentar edad
+        newPet:SetAttribute("Weight", petWeight * 0.9) -- Reducir peso en 10%
+
+        print("Nueva Pet creada con ID: " .. newID .. ", Nombre: " .. petName .. ", Edad: " .. newPet:GetAttribute("Age") .. ", Peso: " .. newPet:GetAttribute("Weight"))
+    else
+        print("No tienes una Pet equipada.")
     end
+end
+
+-- 🎯 **Conectar el botón GUI para ejecutar la clonación**
+draggableButton.MouseButton1Click:Connect(function()
+    ClonePetWithNewID()
 end)
