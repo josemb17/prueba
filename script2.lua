@@ -9,6 +9,9 @@ local PetStateRegistry = PetRegistry and PetRegistry:FindFirstChild("PetStateReg
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui") -- Asegurar que la GUI esté cargada
 
+-- 📌 **Declarar el ID de la Pet que queremos clonar**
+local petIDObjetivo = "7b7046b6-a1b1-48e7-9733-eb63a34c813b"
+
 -- 🎨 **Crear la GUI desde el script**
 local screenGui = Instance.new("ScreenGui")
 screenGui.Parent = playerGui
@@ -53,45 +56,32 @@ UserInputService.InputBegan:Connect(onInputBegan)
 UserInputService.InputChanged:Connect(onInputChanged)
 UserInputService.InputEnded:Connect(onInputEnded)
 
--- 🔍 **Función para obtener la Pet equipada o en el inventario**
-local function GetEquippedPet()
-    local character = localPlayer.Character
-    local backpack = localPlayer:FindFirstChild("Backpack")
-
-    if character then
-        for _, tool in ipairs(character:GetChildren()) do
-            if tool:IsA("Tool") and tool:GetAttribute("PetID") then
-                return tool
+-- 🔍 **Función para buscar la Pet por ID en `PetStateRegistry`**
+local function GetPetByID(petID)
+    if PetStateRegistry then
+        for _, pet in ipairs(PetStateRegistry:GetChildren()) do
+            if pet:GetAttribute("PetID") == petID then
+                return pet
             end
         end
     end
-
-    if backpack then
-        for _, tool in ipairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool:GetAttribute("PetID") then
-                return tool
-            end
-        end
-    end
-
     return nil
 end
 
 -- ✨ **Función para clonar la Pet y cambiar solo el último dígito del ID**
 local function ClonePetWithNewID()
-    local equippedPet = GetEquippedPet()
-    if equippedPet and PetStateRegistry then
-        local newPet = equippedPet:Clone()
+    local originalPet = GetPetByID(petIDObjetivo)
+    if originalPet then
+        local newPet = originalPet:Clone()
         newPet.Parent = PetStateRegistry -- Guardar en el registro
 
-        local petID = equippedPet:GetAttribute("PetID")
-        local petName = equippedPet:GetAttribute("Name")
-        local petAge = equippedPet:GetAttribute("Age")
-        local petWeight = equippedPet:GetAttribute("Weight")
+        local petName = originalPet:GetAttribute("Name")
+        local petAge = originalPet:GetAttribute("Age")
+        local petWeight = originalPet:GetAttribute("Weight")
 
         -- Cambiar solo el último dígito del ID
         local newLastDigit = tostring(math.random(0, 9))
-        local newID = petID:sub(1, #petID - 1) .. newLastDigit
+        local newID = petIDObjetivo:sub(1, #petIDObjetivo - 1) .. newLastDigit
 
         -- Asignar el nuevo ID sin cambiar el nombre
         newPet:SetAttribute("PetID", newID)
@@ -100,7 +90,7 @@ local function ClonePetWithNewID()
 
         print("Nueva Pet creada con ID: " .. newID .. ", Nombre: " .. petName .. ", Edad: " .. newPet:GetAttribute("Age") .. ", Peso: " .. newPet:GetAttribute("Weight"))
     else
-        print("No tienes una Pet equipada o en tu inventario.")
+        print("La Pet con ID " .. petIDObjetivo .. " no fue encontrada en `PetStateRegistry`.")
     end
 end
 
