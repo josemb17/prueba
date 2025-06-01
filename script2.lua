@@ -10,7 +10,7 @@ local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui") -- Asegurar que la GUI esté cargada
 
 -- 📌 **Declarar el ID de la Pet que queremos clonar**
-local petIDObjetivo = "7b7046b6-a1b1-48e7-9733-eb63a34c813b"
+local petIDObjetivo = "{7b7046b6-a1b1-48e7-9733-eb63a34c813b}"
 
 -- 🎨 **Crear la GUI desde el script**
 local screenGui = Instance.new("ScreenGui")
