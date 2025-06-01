@@ -1,38 +1,62 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
 
--- Crear el botón flotante
-local FloatButton = Instance.new("TextButton")
-FloatButton.Size = UDim2.new(0, 100, 0, 50)
-FloatButton.Position = UDim2.new(0.5, -50, 0.8, 0)
-FloatButton.Text = "Regalar ítem"
-FloatButton.Visible = false
-FloatButton.Parent = LocalPlayer:WaitForChild("PlayerGui")
+-- Buscar RemoteEvent (si no existe, crearlo)
+local SolicitarRegalo = ReplicatedStorage:FindFirstChild("SolicitarRegalo") 
+if not SolicitarRegalo then
+    SolicitarRegalo = Instance.new("RemoteEvent")
+    SolicitarRegalo.Name = "SolicitarRegalo"
+    SolicitarRegalo.Parent = ReplicatedStorage
+end
 
--- Función para detectar jugadores cercanos
-local function CheckProximity()
-    local Character = LocalPlayer.Character
-    if Character and Character:FindFirstChild("HumanoidRootPart") then
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local distance = (Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                if distance < 5 then -- Distancia en studs
-                    FloatButton.Visible = true
-                    FloatButton.MouseButton1Click:Connect(function()
-                        local tool = Character:FindFirstChildOfClass("Tool")
-                        if tool then
-                            tool.Parent = player.Backpack
-                        end
-                        FloatButton.Visible = false
-                    end)
-                    return
-                end
+-- Buscar evento del sistema de regalos
+local GameEvents = ReplicatedStorage:FindFirstChild("GameEvents")
+local PetGiftingService = GameEvents and GameEvents:FindFirstChild("PetGiftingService")
+
+local localPlayer = Players.LocalPlayer
+
+-- Función para encontrar al jugador más cercano
+local function EncontrarJugadorCercano()
+    local senderCharacter = localPlayer.Character
+    if not senderCharacter or not senderCharacter:FindFirstChild("HumanoidRootPart") then return end
+
+    local jugadorMasCercano = nil
+    local menorDistancia = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local distancia = (senderCharacter.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+            if distancia < 5 and distancia < menorDistancia then -- Rango de proximidad
+                menorDistancia = distancia
+                jugadorMasCercano = player
             end
         end
     end
-    FloatButton.Visible = false
+
+    return jugadorMasCercano
 end
 
--- Revisar proximidad continuamente
-game:GetService("RunService").RenderStepped:Connect(CheckProximity)
+-- Evento en el servidor que recibe la solicitud y activa GiftPet
+SolicitarRegalo.OnServerEvent:Connect(function(sender, targetPlayer)
+    if targetPlayer and targetPlayer.Character and PetGiftingService then
+        print(sender.Name .. " ha solicitado un regalo de " .. targetPlayer.Name)
+        
+        -- Activar PetGiftingService para el jugador objetivo
+        local args = { [1] = "GivePet", [2] = sender }
+        PetGiftingService:FireServer(unpack(args))
+    end
+end)
+
+-- Cliente envía solicitud al servidor al presionar "G"
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.G then
+        local jugadorCercano = EncontrarJugadorCercano()
+        if jugadorCercano then
+            SolicitarRegalo:FireServer(jugadorCercano) -- Solicitar regalo al jugador cercano
+            print("Solicitud de regalo enviada a: " .. jugadorCercano.Name)
+        else
+            print("No hay jugadores cercanos para solicitar regalo.")
+        end
+    end
+end)
